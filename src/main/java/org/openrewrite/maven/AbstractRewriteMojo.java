@@ -25,6 +25,7 @@ import org.eclipse.aether.artifact.Artifact;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.Recipe;
 import org.openrewrite.config.ClasspathScanningLoader;
 import org.openrewrite.config.Environment;
 import org.openrewrite.config.YamlResourceLoader;
@@ -130,10 +131,22 @@ public abstract class AbstractRewriteMojo extends ConfigurableRewriteMojo {
     }
 
     protected ExecutionContext executionContext(List<Throwable> throwables) {
-        return new InMemoryExecutionContext(t -> {
+        InMemoryExecutionContext ctx = new InMemoryExecutionContext(t -> {
             getLog().debug(t);
             throwables.add(t);
         });
+
+        ctx.putMessage("hw.skipRecipeChecker", (Function<Recipe, Boolean>) recipe -> {
+            List<Pattern> skippedRecipes = getSkippedRecipes();
+            if (skippedRecipes.isEmpty()) {
+                return false;
+            }
+
+            return getSkippedRecipes().stream()
+                .anyMatch(recipeNamePattern -> recipeNamePattern.matcher(recipe.getName()).matches());
+        });
+
+        return ctx;
     }
 
     protected Path getBuildRoot() {
